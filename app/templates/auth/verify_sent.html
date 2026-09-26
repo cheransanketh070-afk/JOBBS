@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Check your email — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card auth-card-center">
+    <h1>Check your inbox</h1>
+    <p class="auth-sub">
+      We've sent a verification link to your email address. Open it to
+      activate your account, then come back and log in.
+    </p>
+    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Go to login</a>
+  </div>
+</section>
+{% endblock %}

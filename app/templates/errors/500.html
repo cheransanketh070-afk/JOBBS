@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card auth-card-center">
+    <h1>Something went wrong</h1>
+    <p class="auth-sub">We hit an unexpected error. Please try again in a moment.</p>
+    <a href="{{ url_for('main.index') }}" class="btn btn-primary">Go home</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Too many requests — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card auth-card-center">
+    <h1>Slow down a little</h1>
+    <p class="auth-sub">You've hit the request limit for this action. Please wait a bit and try again.</p>
+    <a href="{{ url_for('main.index') }}" class="btn btn-primary">Go home</a>
+  </div>
+</section>
+{% endblock %}

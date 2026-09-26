@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+instance/*.db
+data/users_export.csv
+data/users_export.csv.lock
+.venv/
+venv/
+*.log
