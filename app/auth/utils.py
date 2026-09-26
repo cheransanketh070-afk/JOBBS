@@ -47,6 +47,8 @@ def send_verification_email(user_email: str, user_name: str):
             mail.send(msg)
             return
         except Exception as exc:  # noqa: BLE001
+            # Covers SMTP auth failures as well as connection timeouts
+            # (e.g. a host silently blocking outbound port 587).
             logger.error("Failed to send verification email via SMTP: %s", exc)
 
     # Fallback for local/dev use when SMTP isn't configured yet:
