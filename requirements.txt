@@ -16,3 +16,5 @@ gunicorn==23.0.0
 Werkzeug==3.0.4
 filelock==3.16.1
 psycopg2-binary==2.9.9
+psycopg[binary]==3.2.3
+
