@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 
 from flask import Flask, render_template
 from flask_talisman import Talisman
@@ -34,6 +35,13 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     logging.basicConfig(level=logging.INFO)
+
+    # Guard against SMTP (or any outbound socket) hanging forever — some
+    # free hosts silently drop outbound port 587/25 traffic instead of
+    # rejecting it, which otherwise blocks a whole request for minutes.
+    # This makes any blocking socket call time out after 20s so the app
+    # can fall back to logging the verification link instead of hanging.
+    socket.setdefaulttimeout(20)
 
     # Trust one hop of X-Forwarded-* headers from the platform's reverse
     # proxy (Render/Railway/etc.) so request.is_secure and url_for(..,
