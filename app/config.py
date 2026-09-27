@@ -21,6 +21,15 @@ class Config:
         "DATABASE_URL", "sqlite:///" + os.path.join(basedir, "instance", "jobbs.db")
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Free-tier serverless Postgres (e.g. Neon) suspends its compute after a
+    # few idle minutes and silently closes existing connections. pool_pre_ping
+    # tests each pooled connection with a cheap query before use and quietly
+    # reconnects if it's gone stale, instead of surfacing "SSL connection has
+    # been closed unexpectedly" errors to the user.
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+    }
 
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -32,6 +41,13 @@ class Config:
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
     MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", "JOBBS <no-reply@jobbs.local>")
     MAIL_ENABLED = bool(MAIL_USERNAME and MAIL_PASSWORD)
+
+    # Brevo's transactional email API (free tier, HTTPS-based) — the
+    # recommended way to send verification emails on Render's free tier,
+    # since Render blocks outbound SMTP ports (25/465/587) on free web
+    # services entirely. Get a free API key at app.brevo.com (no card).
+    BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+    BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "")
 
     GOOGLE_SITE_VERIFICATION = os.environ.get("GOOGLE_SITE_VERIFICATION", "")
     GOOGLE_ANALYTICS_ID = os.environ.get("GOOGLE_ANALYTICS_ID", "")
