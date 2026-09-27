@@ -1,4 +1,5 @@
 import logging
+import httpx
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import current_app, url_for
 from flask_mail import Message
@@ -29,6 +30,43 @@ def confirm_verification_token(token: str, max_age: int = MAX_AGE_SECONDS):
     return email, None
 
 
+def _send_via_brevo(user_email: str, user_name: str, subject: str, body: str) -> bool:
+    """
+    Send via Brevo's transactional email HTTP API. Unlike raw SMTP, this
+    goes out over normal HTTPS (port 443), which free Render web services
+    do NOT block — SMTP ports 25/465/587 are blocked on Render's free tier,
+    which is why plain Gmail SMTP fails there with "Network is unreachable".
+    """
+    api_key = current_app.config.get("BREVO_API_KEY")
+    sender_email = current_app.config.get("BREVO_SENDER_EMAIL") or current_app.config.get("MAIL_USERNAME")
+    if not api_key or not sender_email:
+        return False
+
+    try:
+        resp = httpx.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={
+                "sender": {"name": current_app.config.get("SITE_NAME", "JOBBS"), "email": sender_email},
+                "to": [{"email": user_email, "name": user_name}],
+                "subject": subject,
+                "textContent": body,
+            },
+            timeout=15.0,
+        )
+        if resp.status_code in (200, 201):
+            return True
+        logger.error("Brevo API rejected the email (HTTP %s): %s", resp.status_code, resp.text[:300])
+        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Brevo API request failed: %s", exc)
+        return False
+
+
 def send_verification_email(user_email: str, user_name: str):
     token = generate_verification_token(user_email)
     verify_url = url_for("auth.verify_email", token=token, _external=True)
@@ -41,17 +79,20 @@ def send_verification_email(user_email: str, user_name: str):
         "If you didn't create this account, you can ignore this email."
     )
 
+    if _send_via_brevo(user_email, user_name, subject, body):
+        return
+
     if current_app.config.get("MAIL_ENABLED"):
         try:
             msg = Message(subject=subject, recipients=[user_email], body=body)
             mail.send(msg)
             return
         except Exception as exc:  # noqa: BLE001
-            # Covers SMTP auth failures as well as connection timeouts
+            # Covers SMTP auth failures as well as connection timeouts/blocks
             # (e.g. a host silently blocking outbound port 587).
             logger.error("Failed to send verification email via SMTP: %s", exc)
 
-    # Fallback for local/dev use when SMTP isn't configured yet:
+    # Fallback for local/dev use, or when no email method is configured:
     logger.warning(
         "MAIL NOT CONFIGURED — verification link for %s: %s", user_email, verify_url
     )
