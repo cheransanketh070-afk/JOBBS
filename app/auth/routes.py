@@ -2,6 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
+from authlib.integrations.base_client.errors import OAuthError
 
 from app.extensions import db, limiter, oauth
 from app.models import User
@@ -123,7 +124,16 @@ def google_callback():
     if not current_app.config.get("GOOGLE_CLIENT_ID"):
         return redirect(url_for("auth.login"))
 
-    token = oauth.google.authorize_access_token()
+    try:
+        token = oauth.google.authorize_access_token()
+    except OAuthError as exc:
+        # Covers MismatchingStateError and similar — usually caused by
+        # reopening/retrying an old Google sign-in link rather than starting
+        # a fresh one. Send the user back to try again instead of a 500.
+        current_app.logger.warning("Google OAuth callback failed: %s", exc)
+        flash("That Google sign-in link expired or was already used. Please try 'Continue with Google' again.", "error")
+        return redirect(url_for("auth.login"))
+
     userinfo = token.get("userinfo")
     if not userinfo:
         # Fallback for Authlib versions/configs that don't auto-parse the ID token
