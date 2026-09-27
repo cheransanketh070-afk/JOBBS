@@ -1,175 +1,214 @@
-# JOBBS — job search web app
+<div align="center">
 
-A full-stack Flask site that wraps your LinkedIn scraper behind a login,
-a filter UI (category, country, posting date, workplace type, result
-count up to 50), a same-day results cache, and basic SEO/analytics hooks.
-No paid APIs are used anywhere.
+# JOBBS
+
+**Find every job, the moment it's posted.**
+
+A full-stack job search platform — live LinkedIn postings, filtered by category, country, posting date, and workplace type, with secure auth and a same-day results cache. Built free, top to bottom, no paid APIs.
+
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-D71F00)](https://www.sqlalchemy.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Deploy](https://img.shields.io/badge/Deploy-Render%20%2B%20Neon-46E3B7)](#deployment)
+
+</div>
 
 ---
 
-## 1. What's included
+## Contents
 
-- **Auth**: email + password (hashed, never stored in plain text) with
-  a verification email, and "Sign in with Google" (OAuth). One account
-  per email address, whichever method is used first.
-- **Database**: SQLite (`instance/jobbs.db`) — no external DB service
-  needed. Tables: `users`, `search_cache`.
-- **CSV export**: every signup also appends a row (name, email, signup
-  date, verified flag, method — never a password) to
-  `data/users_export.csv`, per your request for a CSV copy.
-- **Scraper**: your `linkedin_harvest.py` logic, refactored into
-  `app/scraper/linkedin_scraper.py` as a function that takes the UI's
-  filters and runs in a background thread so the page doesn't freeze.
-- **Same-day cache**: `search_cache` stores results per
-  (keyword, country, date filter, workplace type, result count) per
-  calendar day. A repeat of the same search on the same day is served
-  instantly instead of re-scraping.
-- **Security**: CSRF protection, rate limiting on auth and search
-  endpoints, secure session cookies, security headers + HSTS via
-  Flask-Talisman, a content-security-policy, password complexity rules,
-  parameterized queries (SQLAlchemy ORM).
-- **SEO**: per-page meta tags/Open Graph, `/robots.txt`, `/sitemap.xml`,
-  a slot for the Google Search Console verification tag, and an
-  optional Google Analytics snippet.
-- **UI**: custom design ("JOBBS", navy/teal/amber palette, Fraunces +
-  IBM Plex Sans), animated result cards, progress bar while a scrape
-  runs, fully responsive.
+- [What it does](#what-it-does)
+- [Tech stack](#tech-stack)
+- [How search + caching works](#how-search--caching-works)
+- [Project layout](#project-layout)
+- [Getting started locally](#getting-started-locally)
+- [Environment variables](#environment-variables)
+- [Deployment (100% free tier)](#deployment-100-free-tier)
+- [Security](#security)
+- [SEO](#seo)
+- [Known limitations](#known-limitations)
+- [Roadmap ideas](#roadmap-ideas)
+- [License](#license)
 
-## 2. Project layout
+---
+
+## What it does
+
+JOBBS lets a signed-in user search live job postings with real filters — not vanity toggles:
+
+| Filter | Options |
+|---|---|
+| **Category / keyword** | Free text, with common categories suggested |
+| **Country** | 50+ countries, or Worldwide |
+| **Posted within** | Any time / past 24 hours / past week / past month |
+| **Workplace type** | Any / On-site / Remote / Hybrid |
+| **Result count** | Up to 50 per search |
+
+Press **Find jobs** and the app scrapes fresh results in the background, streaming progress back to the page with a live counter — no reload. Once a search has run today, anyone repeating the exact same filters gets the cached result back instantly instead of re-scraping.
+
+**Auth:** email + password (hashed, verified by email before first login) or Google Sign-In — one account per email address, whichever method claims it first.
+
+## Tech stack
+
+- **Backend:** Python, Flask, SQLAlchemy, Flask-Login, Flask-WTF (CSRF), Flask-Limiter (rate limiting), Flask-Talisman (security headers/HSTS), Authlib (Google OAuth)
+- **Scraping:** httpx (async) + BeautifulSoup, wrapped in a background-thread job runner with live progress polling
+- **Database:** SQLite locally, Postgres in production (SQLAlchemy handles both — same code, different `DATABASE_URL`)
+- **Email:** Brevo's transactional HTTP API (works on hosts that block outbound SMTP), with SMTP and console-log fallbacks
+- **Frontend:** Server-rendered Jinja2 templates, hand-written CSS (no framework), vanilla JS for the search flow
+- **Hosting:** Render (web service) + Neon (Postgres) + Brevo (email) — all free, no card required anywhere
+
+## How search + caching works
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Flask app
+    participant J as Background job
+    participant L as LinkedIn (public pages)
+    participant D as Postgres cache
+
+    U->>F: POST /api/search (filters)
+    F->>D: Same search already cached today?
+    alt cache hit
+        D-->>F: Cached results
+        F-->>U: Instant response
+    else cache miss
+        F->>J: Start background scrape
+        F-->>U: job_id (202-style response)
+        loop poll every 1.5s
+            U->>F: GET /api/search/status/job_id
+            F-->>U: progress so far
+        end
+        J->>L: Fetch search results + descriptions
+        J-->>F: Final job list
+        F->>D: Store as today's cache entry
+        F-->>U: Final results
+    end
+```
+
+## Project layout
 
 ```
 jobbs/
-  app/
-    auth/            registration, login, Google OAuth, email verification
-    main/            landing page, dashboard, search API, job manager, SEO routes
-    scraper/         your scraper logic + country/category/filter lists
-    templates/        Jinja2 pages
-    static/           css/js/logo
-    models.py         User, SearchCache
-    config.py         reads everything from .env
-    extensions.py     Flask extension instances
-  data/               users_export.csv lands here
-  instance/           jobbs.db (SQLite) lands here
-  wsgi.py             production entrypoint (gunicorn wsgi:app)
-  run_dev.py          local dev entrypoint (python run_dev.py)
-  requirements.txt
-  Procfile            for Render/Railway/Heroku-style hosts
-  .env.example        copy to .env and fill in
+├── app/
+│   ├── auth/            registration, login, Google OAuth, email verification
+│   ├── main/            landing page, dashboard, search API, background job manager, SEO routes
+│   ├── scraper/         scraping engine + country/category/filter lists
+│   ├── templates/       Jinja2 pages
+│   ├── static/          css / js / logo
+│   ├── models.py        User, SearchCache
+│   ├── config.py        reads everything from environment variables
+│   └── extensions.py    Flask extension instances
+├── data/                users_export.csv lands here (non-secret signup fields only)
+├── instance/            jobbs.db (SQLite) lands here, local dev only
+├── wsgi.py              production entrypoint — gunicorn wsgi:app
+├── run_dev.py           local dev entrypoint — python run_dev.py
+├── requirements.txt
+├── Procfile             start command for Render/Heroku-style hosts
+├── .env.example         copy to .env and fill in
+└── LICENSE
 ```
 
-## 3. Run it locally
+## Getting started locally
 
 ```bash
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS/Linux
+
 pip install -r requirements.txt
-cp .env.example .env             # fill in what you can — see section 4
+copy .env.example .env         # Windows: copy · macOS/Linux: cp
 python run_dev.py
 ```
 
-Visit `http://127.0.0.1:5000`. Without SMTP configured, verification
-links are printed to the terminal log instead of emailed, so you can
-still test signup end-to-end locally. Without Google OAuth configured,
-the "Continue with Google" button shows a friendly error instead of
-crashing.
+Visit `http://127.0.0.1:5000`. With no email provider configured, verification links print to the terminal instead of being emailed, so the full signup flow is testable with zero external setup.
 
-## 4. What YOU need to provide before going live
+## Environment variables
 
-Everything below is free. Put the values in `.env` (copy from
-`.env.example` first).
+All read from `.env` locally, or from your host's dashboard in production. Full annotated list lives in [`.env.example`](./.env.example) — summary:
 
-### a) A secret key
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
+| Variable | Required? | Purpose |
+|---|---|---|
+| `SECRET_KEY` | Yes | Session signing, CSRF, tokens |
+| `SITE_URL` | Yes (prod) | Builds absolute URLs (sitemap, OAuth callback) |
+| `DATABASE_URL` | No | Defaults to local SQLite; set to a Postgres URL in production |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | For Google Sign-In | From Google Cloud Console → Credentials |
+| `BREVO_API_KEY` / `BREVO_SENDER_EMAIL` | For real verification emails | Free at app.brevo.com — works where SMTP is blocked |
+| `MAIL_*` | Optional fallback | SMTP, only used if Brevo isn't configured |
+| `GOOGLE_SITE_VERIFICATION` | For Search Console | The `content` value from the HTML-tag verification method |
+| `GOOGLE_ANALYTICS_ID` | Optional | GA4 measurement ID |
+
+## Deployment (100% free tier)
+
+The stack this project is built and tested against:
+
+1. **GitHub** — hosts the source
+2. **Render** (free web service) — runs the app; no card required
+3. **Neon** (free Postgres) — persists data forever, unlike Render's free database which expires after 30 days
+4. **Brevo** (free transactional email API) — sends verification emails over HTTPS, since Render's free tier blocks outbound SMTP ports entirely
+
+High-level flow: push to GitHub → connect the repo in Render → set environment variables in Render's dashboard → set `DATABASE_URL` to your Neon connection string → set `BREVO_API_KEY`/`BREVO_SENDER_EMAIL` → deploy. First boot auto-creates all database tables.
+
+Because free Render services sleep after 15 minutes idle, a scheduled GitHub Actions workflow (`.github/workflows/keep-alive.yml`, add it yourself if you want this) can ping the site every 10 minutes to keep it warm — optional, and worth pairing with a free external monitor like UptimeRobot for redundancy.
+
+## Security
+
+- Passwords hashed (never stored or exported in plain text)
+- CSRF protection on all state-changing requests
+- Rate limiting on auth and search endpoints
+- Secure, `HttpOnly`, `SameSite` session cookies + HSTS + CSP via Flask-Talisman
+- Parameterized queries throughout (SQLAlchemy ORM, no raw SQL string-building)
+- `pool_pre_ping` on the database engine so stale serverless-Postgres connections reconnect transparently instead of surfacing 500s
+- One account per email address, enforced at the database level
+
+## SEO
+
+Per-page meta tags and Open Graph tags, `/robots.txt`, `/sitemap.xml`, a slot for the Google Search Console HTML-tag verification value, and an optional GA4 snippet — all wired through environment variables, no hardcoding required.
+
+## Known limitations
+
+- **Scraping is against LinkedIn's User Agreement.** This reads LinkedIn's public, unauthenticated job-search pages — no login, no private data — but LinkedIn actively rate-limits and can change its markup at any time, which will eventually require updating the CSS selectors in `app/scraper/linkedin_scraper.py`. Treat this as a personal/portfolio project rather than a public product scraping LinkedIn at scale.
+- **In-memory job tracking.** Search progress lives in the running process's memory, so the app is designed for a single worker/instance. Scaling beyond that means swapping `app/main/job_manager.py` for a real task queue (Celery + Redis, or RQ).
+- **Free-tier cold starts.** Render's free web services sleep after 15 minutes idle and take 30–60 seconds to wake on the next request.
+
+## Roadmap ideas
+
+- Saved searches + email alerts for new postings matching a saved filter set
+- Pagination / infinite scroll past the first result page
+- Per-user search history view
+- Swap the in-memory job queue for Celery + Redis to support multiple workers
+
+## License
+
+Released under the MIT License — see [`LICENSE`](./LICENSE).
+
 ```
-Paste the output into `SECRET_KEY`.
+MIT License
 
-### b) Google OAuth ("Sign in with Google")
-1. Go to [console.cloud.google.com](https://console.cloud.google.com/) → create a project.
-2. **APIs & Services → OAuth consent screen** → set it up (External, add your app name/logo, your email).
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID** → Application type **Web application**.
-4. Under **Authorized redirect URIs**, add:
-   `https://your-domain.com/auth/google/callback` (and `http://127.0.0.1:5000/auth/google/callback` for local testing).
-5. Copy the **Client ID** and **Client secret** into `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+Copyright (c) 2026 Cheran Sanketh
 
-### c) Email sending (for verification links)
-Simplest free option — Gmail SMTP with an App Password:
-1. Turn on 2-Step Verification on the Gmail account you'll send from.
-2. Create an App Password: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
-3. Put the Gmail address in `MAIL_USERNAME` and the 16-character app password in `MAIL_PASSWORD`.
-(Any other SMTP provider's free tier — e.g. Brevo, Mailjet — works too; just change `MAIL_SERVER`/`MAIL_PORT`.)
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-### d) Google Search Console (SEO)
-1. Go to [search.google.com/search-console](https://search.google.com/search-console) → **Add property** → enter your domain.
-2. Choose the **HTML tag** verification method — it gives you a `content="..."` value.
-3. Paste just that value into `GOOGLE_SITE_VERIFICATION` in `.env`, redeploy, then click **Verify** in Search Console.
-4. Once verified, go to **Sitemaps** in Search Console and submit:
-   `https://your-domain.com/sitemap.xml`
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-### e) Google Analytics (optional)
-Create a free GA4 property at [analytics.google.com](https://analytics.google.com/), copy the
-Measurement ID (`G-XXXXXXXXXX`) into `GOOGLE_ANALYTICS_ID`.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
-### f) Your domain
-Set `SITE_URL` in `.env` to your real domain once you have one — it's
-used to build absolute URLs for the sitemap and OAuth callback.
+---
 
-## 5. Deploying (no paid tier required)
-
-Any host that runs Python + gunicorn works. Render's free web service
-is the simplest:
-
-1. Push this project to a GitHub repo (the `.gitignore` already keeps
-   `.env`, the database, and the CSV out of git).
-2. On [render.com](https://render.com) → **New → Web Service** → connect the repo.
-3. Build command: `pip install -r requirements.txt`
-   Start command: `gunicorn wsgi:app --workers 1 --threads 4 --timeout 120`
-   (the `Procfile` already encodes this if your host reads it automatically).
-4. Add every variable from your `.env` in the host's **Environment**
-   settings (do not upload the `.env` file itself).
-5. Because search results and job-progress tracking are kept in this
-   process's memory (see section 6), keep it to **one web instance /
-   one worker**. If you outgrow that, swap the in-memory job store in
-   `app/main/job_manager.py` for Celery + Redis or RQ — the rest of the
-   app already calls it through a small, swappable interface.
-6. SQLite's file (`instance/jobbs.db`) needs a persistent disk — most
-   free tiers reset the filesystem on redeploy, so attach a small
-   persistent volume if your host offers one (Render's free tier does
-   not persist disk across deploys; Railway's does). If you need
-   guaranteed persistence on a host without one, swap
-   `DATABASE_URL` for a free-tier Postgres instance (e.g. Supabase,
-   Neon, Railway Postgres) — no code changes needed beyond that URL,
-   since SQLAlchemy handles both.
-
-## 6. Things worth knowing
-
-- **Legal note on scraping**: this reads LinkedIn's public,
-  unauthenticated job-search pages (no login, no private data). Scraping
-  LinkedIn is against LinkedIn's User Agreement, and LinkedIn actively
-  rate-limits/blocks scraping traffic and can change its HTML at any
-  time, which will eventually break the CSS selectors in
-  `linkedin_scraper.py`. Keep volume modest and treat this as a personal
-  or internal tool rather than a public product scraping LinkedIn at
-  scale.
-- **In-memory job queue**: search progress is tracked in the running
-  process's memory, which is why the app is set up for a single
-  worker. This keeps the whole stack free/simple; it's the one thing to
-  revisit if you need to scale beyond one instance.
-- **Country filter**: countries are passed to LinkedIn's search as a
-  plain place name (no hardcoded internal IDs, which are undocumented
-  and change silently) — add or remove entries in
-  `app/scraper/countries.py`.
-- **Result cap**: hard-capped at 50 per search (`SCRAPE_MAX_RESULTS_CAP`
-  in `.env`) as requested.
-- **CSV vs database**: `users_export.csv` is a convenience export only;
-  the real source of truth (with hashed passwords) is `instance/jobbs.db`.
-
-## 7. Quick checklist before you consider this "live"
-
-- [ ] Real `SECRET_KEY` set
-- [ ] Google OAuth client ID/secret set, redirect URI matches your domain
-- [ ] SMTP credentials set (or accepted that verification links log to console)
-- [ ] Domain set in `SITE_URL`
-- [ ] Deployed with persistent storage for `instance/jobbs.db`
-- [ ] Search Console verified + sitemap submitted
-- [ ] Tried the full flow yourself: register → verify email → log in → search → see cached instant re-search
+<div align="center">
+<sub>Built by Cheran Sanketh · job data sourced from public listings for informational purposes</sub>
+</div>
