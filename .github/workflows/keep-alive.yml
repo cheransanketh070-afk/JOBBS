@@ -1,13 +1,27 @@
-name: Keep Render app awake
+name: Keep Render App Awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes
-  workflow_dispatch: {}       # lets you trigger it manually too
+    # Run every 10 minutes, offset from the top of the hour
+    - cron: "3,13,23,33,43,53 * * * *"
+
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+
     steps:
-      - name: Ping the live site
-        run: curl -sSf https://jobbs-4jsh.onrender.com/ -o /dev/null
+      - name: Ping Render service
+        run: |
+          echo "Pinging Render service..."
+
+          curl --fail --silent --show-error \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 10 \
+            --retry-all-errors \
+            https://jobbs-4jsh.onrender.com/
+
+          echo "Render service responded successfully."
