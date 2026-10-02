@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ post.title }} — {{ site_name }}{% endblock %}
 {% block description %}{{ post.excerpt or (post.title ~ ' — ' ~ site_name) }}{% endblock %}
+{% block og_title %}{{ post.title }}{% endblock %}
+{% block og_description %}{{ post.excerpt or (post.title ~ ' — ' ~ site_name) }}{% endblock %}
+{% block og_type %}article{% endblock %}
 {% block content %}
 <section class="blog-section">
   <div class="wrap wrap-narrow">
