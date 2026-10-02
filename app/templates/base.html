@@ -8,9 +8,15 @@
 {% if google_site_verification %}
 <meta name="google-site-verification" content="{{ google_site_verification }}">
 {% endif %}
-<meta property="og:title" content="{{ site_name }} — Find every job, the moment it's posted">
-<meta property="og:description" content="Search live job postings by category, country and posting date.">
-<meta property="og:type" content="website">
+<meta property="og:title" content="{% block og_title %}{{ site_name }} — Find every job, the moment it's posted{% endblock %}">
+<meta property="og:description" content="{% block og_description %}Search live job postings by category, country and posting date.{% endblock %}">
+<meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='img/og-image.png', _external=True) }}{% endblock %}">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:type" content="{% block og_type %}website{% endblock %}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ self.og_title() }}">
+<meta name="twitter:description" content="{{ self.og_description() }}">
+<meta name="twitter:image" content="{{ self.og_image() }}">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%2310233D%22/><text x=%2250%22 y=%2268%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%231E7F6E%22 font-family=%22Georgia,serif%22>J</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
