@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Blog — {{ site_name }}{% endblock %}
+{% block description %}Job market updates, trending roles, and tips from {{ site_name }}.{% endblock %}
+{% block content %}
+<section class="blog-section">
+  <div class="wrap">
+    <div class="blog-header">
+      <h1>Blog</h1>
+      {% if current_user.is_authenticated and current_user.email.lower() in admin_emails %}
+        <a href="{{ url_for('blog.new_post') }}" class="btn btn-primary btn-small">+ New post</a>
+      {% endif %}
+    </div>
+
+    {% if posts %}
+      <div class="blog-list">
+        {% for post in posts %}
+          <a class="blog-card" href="{{ url_for('blog.view_post', slug=post.slug) }}">
+            <h2>{{ post.title }}</h2>
+            {% if post.excerpt %}<p>{{ post.excerpt }}</p>{% endif %}
+            <span class="blog-date">{{ post.created_at.strftime('%B %-d, %Y') }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="auth-sub">No posts yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

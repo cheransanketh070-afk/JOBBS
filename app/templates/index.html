@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="hero-copy">
+      <h1>Every fresh job posting,<br>found before the crowd.</h1>
+      <p class="hero-sub">
+        Set a category, a country, and how recent you want it — JOBBS pulls
+        live postings straight off the search results and hands you a clean
+        list in seconds.
+      </p>
+      <div class="hero-actions">
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Start searching — it's free</a>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-ghost">I have an account</a>
+      </div>
+    </div>
+
+    <div class="hero-panel" aria-hidden="true">
+      <div class="mock-filterbar">
+        <div class="mock-field"><span>Category</span><strong>Data Engineer</strong></div>
+        <div class="mock-field"><span>Country</span><strong>Singapore</strong></div>
+        <div class="mock-field"><span>Posted</span><strong>Past 24 hours</strong></div>
+        <div class="mock-field"><span>Setting</span><strong>Remote</strong></div>
+        <div class="mock-go">Find jobs →</div>
+      </div>
+      <div class="mock-results">
+        <div class="mock-card"><div class="mock-line w70"></div><div class="mock-line w40 dim"></div></div>
+        <div class="mock-card"><div class="mock-line w60"></div><div class="mock-line w30 dim"></div></div>
+        <div class="mock-card"><div class="mock-line w80"></div><div class="mock-line w45 dim"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="steps">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <div class="steps-grid">
+      <div class="step">
+        <h3>Set your filters</h3>
+        <p>Pick a job category, country, how far back to search, remote or on-site, and how many results you want.</p>
+      </div>
+      <div class="step">
+        <h3>Press find</h3>
+        <p>JOBBS runs a fresh search and streams results back as they're found — no page reload, no waiting around.</p>
+      </div>
+      <div class="step">
+        <h3>Get today's results instantly next time</h3>
+        <p>Once a search has run today, anyone repeating it gets the same results back immediately, straight from cache.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="wrap features-grid">
+    <div class="feature">
+      <h3>Built for real filters</h3>
+      <p>Category, posting date, country, and workplace type — the filters that actually change your search, not vanity toggles.</p>
+    </div>
+    <div class="feature">
+      <h3>Verified accounts only</h3>
+      <p>Sign up with email or Google. One account per email address, confirmed before you can search.</p>
+    </div>
+    <div class="feature">
+      <h3>Free to use</h3>
+      <p>No paid API keys, no subscription tier. JOBBS reads public postings directly.</p>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

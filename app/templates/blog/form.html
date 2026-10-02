@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}Edit post{% else %}New post{% endif %} — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth-section">
+  <div class="auth-card blog-form-card">
+    <h1>{% if mode == 'edit' %}Edit post{% else %}New post{% endif %}</h1>
+
+    <form method="POST" novalidate>
+      {{ form.hidden_tag() }}
+
+      <label>{{ form.title.label }}
+        {{ form.title(placeholder="10 Remote Software Engineer Jobs Hiring Now") }}
+        {% for e in form.title.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+      </label>
+
+      <label>{{ form.slug.label }}
+        {{ form.slug(placeholder="10-remote-software-engineer-jobs") }}
+      </label>
+
+      <label>{{ form.excerpt.label }}
+        {{ form.excerpt(placeholder="A quick roundup of the best remote roles live right now.") }}
+      </label>
+
+      <label>{{ form.body_markdown.label }}
+        {{ form.body_markdown(rows=18, placeholder="## Top picks this week\n\n1. **Senior Backend Engineer** at Acme — [View posting](https://...)\n2. ...") }}
+      </label>
+
+      <label class="checkbox-row">{{ form.is_published() }} {{ form.is_published.label }}</label>
+
+      {{ form.submit(class="btn btn-primary btn-full") }}
+    </form>
+  </div>
+</section>
+{% endblock %}
